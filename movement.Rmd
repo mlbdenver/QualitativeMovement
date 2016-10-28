@@ -11,8 +11,6 @@ Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible t
 
 This analysis creates two machine learning models, resulting in a random forest model with estimated 99.2% accuracy in predicting if an exercise movement was performed correctly based on movement readings.
 
-# Data Processing
-
 ## Data Source
 
 The data used to create a movement model is found [here](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv), and the data used to test the model is found [here](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv)
@@ -32,7 +30,7 @@ install_load("dplyr", "dtplyr", "tidyr", "stringr", "ggplot2", "RColorBrewer", "
 
 ```{r echo=FALSE, message=FALSE}
 knit_hooks$set(inline = function(x) {
-  prettyNum(round(x,3), big.mark=",")
+  prettyNum(round(x,2), big.mark=",")
 })
 ```
 
@@ -52,7 +50,7 @@ download.file(testURL, destfile = "./data/pml-testing.csv")
 trainData <- read.csv("./data/pml-training.csv", na.strings=c("","NA","NaN"))
 testData <- read.csv("./data/pml-testing.csv", na.strings=c("","NA","NaN"))
 ```
-The training data set has `r nrow(trainData)` observations of `r ncol(trainData)` variables. However, as shown below, some columns have NA/null data. We'll remove the columns that have more than 90% "NA" or missing data. Also, we'll remove the first seven columns(non-measurement or identifier variables) to result in a clean dataset for modeling. 
+The raw training data set has `r nrow(trainData)` observations of `r ncol(trainData)` variables. However, as shown below, some columns have NA/null data. We'll remove the columns that have more than 90% "NA" or missing data. Also, we'll remove the first seven columns (non-measurement or identifier variables) to result in a clean dataset for modeling. 
 
 ```{r clear_NA}
 trainData <- trainData[, colSums(is.na(trainData)) < 0.9 * nrow(trainData)] 
@@ -63,7 +61,7 @@ dim(trainData)
 
 Applying a Near Zero Variance analysis indicates that all remaining factors are useful.
 
-``` {r near_zero, echo=FALSE}
+``` {r near_zero}
 nsv <- nearZeroVar(trainData,saveMetrics=TRUE)
 ```
 
@@ -82,13 +80,14 @@ set.seed(1129)
 inTrain <- createDataPartition(y=trainData$classe, p=0.7, list=FALSE)
 training <- trainData[inTrain,]
 testing <- trainData[-inTrain,]
-dim(training)
-dim(testing)
+dim(training);dim(testing)
 ```
 
 ##Model using various methods
 
-### RPart
+### Classification Tree Model
+
+One of the simpler models for categorizing outcomes is the classification tree. Variables are separated into groups, and decision nodes create an algorithmic path to categorizing outcomes. We'll use the Rpart functionality of R and caret to model the dataset.
 ``` {r rpart_model, cache=TRUE}
 modRpart <- train(classe ~ .,method="rpart",data=training)
 fancyRpartPlot(modRpart$finalModel)
@@ -100,7 +99,9 @@ accRp
 
 The relatively low accuracy of `r accRp*100`% leads the analysis to a different algorithm, Random Forest.
 
-### Random Forest
+### Random Forest Model
+
+In an effort to increase accuracy, we can perform a random forest analysis, which creates a large number of decision trees of lower accuracy and averages their outcome, resulting in higher accuracy.
 ``` {r rf_model, cache=TRUE}
 cluster <- makeCluster(detectCores() - 1) # convention to leave 1 core for OS
 registerDoParallel(cluster)
@@ -115,8 +116,9 @@ accRf
 ```
 The accuracy of `r accRf*100`% as performed on the validation data is much higher than the RPart model and gives confidence that this model will perform better on the test data. The out-of-sample error is estimated at `r (1-accRf)*100`%.
 
-### Boosting
+### Boosting Model
 
+One additional method for classification is gradient boosting, which combines weak predictors to form stronger predictors. We can use caret's gbm method to model our data.
 ``` {r gbm_model, cache=TRUE}
 modGbm <- train(classe ~ ., method="gbm",data=training, verbose=FALSE)
 predGbm <- predict(modGbm,testing)
@@ -125,7 +127,7 @@ accGbm
 ```
 The accuracy of `r accGbm*100`% as performed on the validation data is much higher than the RPart model but lower than that of the random forest model. The out-of-sample error is estimated at `r (1-accGbm)*100`%.
 
-##Application of random forest model to test data
+##Application of Random Forest Model to Test Data
 
 Using the random forest model, which has the highest estimated accuracy, we can estimate the following vector of classe predictions:
 ```{r rf_test, message=FALSE}
